@@ -38,6 +38,10 @@ $GLOBALS["respear"]["stream_context"]   = array(
                                             //"request_fulluri" => "true"
                                           );
 
+// mail_from and mail_noreply are use to send emails
+$GLOBALS["respear"]["mail_from"]        = "respear@server";
+$GLOBALS["respear"]["mail_noreply"]     = "noreply@server";
+
 // overload generic configuration if necessary
 $conf_local_file = dirname(__FILE__).'/config.local.php';
 if (file_exists($conf_local_file)) {

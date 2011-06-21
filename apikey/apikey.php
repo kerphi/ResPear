@@ -92,27 +92,29 @@ echo 'Your APIKEY was generated. You will receive a message.';
 
 function sendMail($email,$login,$uuid,$b64){
 $time = date(DATE_RSS);
-$subject = '[IAPI] Your personal APIKEY';
+$subject = '[ResPear] Your personal API key';
 $message = <<<EOT
 
-You have request a APIKEY that authorizate you to use the IAPI server.
+You have request an API key to use the ResPear server.
 
-
- APIKEY generated at $time
+ API key generated at $time
 -------------------------------------------------------------------------------
   E-Mail   : $email 
   Login    : $login  
   Password : $uuid 
 -------------------------------------------------------------------------------
   Basic $b64
+  curl -u $login:$uuid
 -------------------------------------------------------------------------------
 
-In case of abuse, we reserve the right to disable this key.
+Don't abuse or you will be blacklisted.
 
 EOT;
+$from    = $GLOBALS["respear"]["mail_from"];
+$noreply = $GLOBALS["respear"]["mail_noreply"];
 $headers = <<<EOT
-From: jungle@intra.inist.fr
-Reply-To: noreply@inist.fr
+From: $from
+Reply-To: $noreply
 EOT;
 
 mail($email, $subject, $message, $headers);
