@@ -70,6 +70,8 @@ class Respear
         // On liste le contenu de l'archive avec la commande tar --list        
         exec('tar --list --file='.$tgz.' '.$name.'-'.$release.'/'.$path,$msg,$status);
 
+        $h->add("Content-Type",'application/atom+xml; charset=UTF-8');
+
         // Création du flux ATOM
         include_once("ATOMWriter.php");
         
@@ -856,12 +858,14 @@ class Respear
      */
     function list_pear_packages($p, $h)
     {
-        //Check configuration
+
+        // Check configuration
         $conf = $this->check_config($p,$h);
         if ($conf == '') return '';
-        
+
+        $h->add("Content-Type",'application/atom+xml; charset=UTF-8');
+
         include_once("ATOMWriter.php");
-        
         $xmlWriter = new XMLWriter();
         $xmlWriter->openUri('php://output');
         $xmlWriter->setIndent(true);
@@ -882,7 +886,7 @@ class Respear
                }
            }
         }
-         
+
         $f = new ATOMWriter($xmlWriter, true);
         $f->startFeed('urn:respear')
           ->writeStartIndex(1)
@@ -897,10 +901,8 @@ class Respear
               ->endEntry();
             $f->flush();
         }
-        
         $f->endFeed();
         $f->flush();
-        
         $h->send(200);
     }
 
@@ -909,24 +911,23 @@ class Respear
      */
     function list_package_versions($p, $h)
     {
-        //Check configuration
+        $h->add('Content-Type','application/atom+xml; charset=UTF-8');
+
+        // Check configuration
         $conf = $this->check_config($p,$h);
         if ($conf == '') return '';
-        
+
+
         include_once("ATOMWriter.php");
-        
         $xmlWriter = new XMLWriter();
         $xmlWriter->openUri('php://output');
         $xmlWriter->setIndent(true);
-        
-        $rep = $this->pear_server_path."get/";
-        
         $f = new ATOMWriter($xmlWriter, true);
-           
-        $nom  = array();
-        $para = (string)$p->__sections[0];
+        $rep     = $this->pear_server_path."get/";
+        $nom     = array();
+        $para    = (string)$p->__sections[0];
 	    $boolean = 0;
-        $dir  = opendir($rep);         
+        $dir = opendir($rep);         
         while ($fi = readdir($dir)) {                            
             if (is_file($rep.$fi)) {
                 if (strpos($fi,$para) !== false && !in_array(substr($fi,0,strrpos($fi,".")),$nom)) {    
@@ -945,7 +946,7 @@ class Respear
 	          ->writeTitle('Package not found');      
 	          exit();
         }
-	    $f->startFeed('urn:respear:$para')
+	    $f->startFeed("urn:respear:$para")
           ->writeStartIndex(1)
           ->writeItemsPerPage(10)
           ->writeTotalResults(100)
