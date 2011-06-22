@@ -85,7 +85,7 @@ class Respear
           ->writeStartIndex(1)
           ->writeItemsPerPage(10)
           ->writeTotalResults(100)
-          ->writeTitle('List of the file in Pear package '.$name.'-'.$release.'/'.$path.' :');
+          ->writeTitle('Files list in PEAR package '.$name.'-'.$release.'/'.$path.' :');
         
         // Affichage de package.xml si on est a la racine
         if ($path == '') {
@@ -99,7 +99,7 @@ class Respear
         // On boucle sur la liste et on affiche
         if (empty($msg)) {
             $f->startEntry("urn:respear:$name-$release")
-                       ->writeTitle('We are sorry they are an error in the script. Please contact developpeur')
+                       ->writeTitle('We are sorry, there is an error in the script. Please contact the developper.')
                        ->endEntry();
                      $f->flush();
         }
@@ -505,7 +505,7 @@ class Respear
         $source_xml = @file_get_contents($lien_xml,false, $ct);
         if (!$source_xml) {
             $this->write_log($login,$var,'404',"-");
-            RespearStatus::getInstance()->addStatus(4042,array('XML not found maybe because this file is protected')); 
+            RespearStatus::getInstance()->addStatus(4042,array('XML not found. Please check the file is readable.'));
             $this->send_respear_status($h);
             exec("rm -rf $dossier_tmp");
             return ''; 
@@ -690,7 +690,7 @@ class Respear
         if ($this->htpasswd_file == "" || $this->htapikey_file == "" || $this->htblacklist_file == "" || $this->tmp_path == "" || 
         $this->pear_server_path == "" || $this->pirum_path == "" || $this->channel_name == "") {
             $this->write_server_log(RespearStatus::getInstance()->getMessage(5000)." Variable not initialized in config.php","500");
-            RespearStatus::getInstance()->addStatus(5000,array('Show log file for more information')); 
+            RespearStatus::getInstance()->addStatus(5000,array('Check your log file for more informations')); 
             $this->send_respear_status($h); 
             return '';
         }
@@ -698,19 +698,19 @@ class Respear
         // Verification de l'integrité des valeurs
         if (!is_file($this->pirum_path)) {
             $this->write_server_log(RespearStatus::getInstance()->getMessage(5000)." Error. Variable pirum_path must be a file","500");
-            RespearStatus::getInstance()->addStatus(5000,array('Show log file for more information')); 
+            RespearStatus::getInstance()->addStatus(5000,array('Check your log file for more informations')); 
             $this->send_respear_status($h); 
             return '';
         }
         if (!is_dir($this->pear_server_path)) {
             $this->write_server_log(RespearStatus::getInstance()->getMessage(5000)." Error. Variable pear_server_path must be a directory","500");
-            RespearStatus::getInstance()->addStatus(5000,array('Show log file for more information')); 
+            RespearStatus::getInstance()->addStatus(5000,array('Check your log file for more informations')); 
             $this->send_respear_status($h); 
             return '';            
         }
         if (!is_dir($this->tmp_path)) {
             $this->write_server_log(RespearStatus::getInstance()->getMessage(5000)." Error. Variable tmp_path must be a directory","500");
-            RespearStatus::getInstance()->addStatus(5000,array('Show log file for more information')); 
+            RespearStatus::getInstance()->addStatus(5000,array('Check your log file for more informations')); 
             $this->send_respear_status($h); 
             return ''; 
         }
@@ -795,7 +795,7 @@ class Respear
                 @file_put_contents($path.$str.$n['name'],@file_get_contents($lien.substr($str,1).$n['name'], false, $ct));
                 if ( $ecriture  || !file_exists($path.$str.$n['name'])  ) {
                     $this->write_log($login,"-","415","-");
-                    RespearStatus::getInstance()->addStatus(4156,array('file in package.xml not found')); 
+                    RespearStatus::getInstance()->addStatus(4156,array('File in package.xml not found')); 
                     $this->send_respear_status($h); 
                     return '';
                 }
@@ -858,7 +858,6 @@ class Respear
      */
     function list_pear_packages($p, $h)
     {
-
         // Check configuration
         $conf = $this->check_config($p,$h);
         if ($conf == '') return '';
@@ -892,7 +891,7 @@ class Respear
           ->writeStartIndex(1)
           ->writeItemsPerPage(10)
           ->writeTotalResults(100)
-          ->writeTitle('List of the packages on the server Pear:');
+          ->writeTitle('PEAR package list on the server');
             
         foreach ($tab_nom as $k=>$v) {
             $f->startEntry("urn:respear:$v",$info_nom[$v."crea"],$info_nom[$v."modi"])
