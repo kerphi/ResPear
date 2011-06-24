@@ -34,12 +34,16 @@ class Respear
     /**
      * Sends the header HTTP and the text of the reply
      */ 	
-    function send_respear_status($h,$type='text/plain')
+    function send_respear_status($h, $type='text/plain', $show_message = true)
     {
-        $h->add("content-type",$type);
         $instance = RespearStatus::getInstance();
+        if ($type) {
+            $h->add("Content-Type",$type);
+        }
         $h->send($instance->getStatus());
-        $this->show_message($instance->getContent());
+        if ($show_message) {
+            $this->show_message($instance->getContent());
+        }
     }
     
     /**
@@ -74,7 +78,6 @@ class Respear
 
         // Création du flux ATOM
         include_once("ATOMWriter.php");
-        
         $xmlWriter = new XMLWriter();
         $xmlWriter->openUri('php://output');
         $xmlWriter->setIndent(true);
@@ -85,7 +88,7 @@ class Respear
           ->writeStartIndex(1)
           ->writeItemsPerPage(10)
           ->writeTotalResults(100)
-          ->writeTitle('Files list in PEAR package '.$name.'-'.$release.'/'.$path.' :');
+          ->writeTitle('Files in package '.$name.'-'.$release.'/'.$path);
         
         // Affichage de package.xml si on est a la racine
         if ($path == '') {
@@ -124,7 +127,7 @@ class Respear
         $f->endFeed();
         $f->flush();  
         RespearStatus::getInstance()->addStatus(200);
-        $this->send_respear_status($h);   
+        $this->send_respear_status($h, null, false);   
     }
     
     /**
@@ -544,7 +547,7 @@ class Respear
             return '';
         }
 
-	    return $this->prepare_pear_package($p,$h,$login,$this->tmp_path.$dossier_tmp);
+	return $this->prepare_pear_package($p,$h,$login,$this->tmp_path.$dossier_tmp);
     }
 
     /**
