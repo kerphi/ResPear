@@ -973,6 +973,7 @@ class Respear
                 $r[2] = (string) $p->__sections->fetch();
             }
         }
+        $p->__sections->close();
         return $r;
     }
 
