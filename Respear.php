@@ -285,7 +285,7 @@ class Respear
      */
     function add_pear_package($p,$h)
     {
-    
+
         //Check configuration
         $conf = $this->check_config($p,$h);
         if ($conf == '') return;
@@ -293,7 +293,7 @@ class Respear
         // Verification de l'user mdp
         $login = $this->check_autorization($p,$h);
         if ($login === '') return;               
-        
+
         // Création d'un dossier temporaire
         $dossier = "dossier_".rand(100,900)."/";
         exec('mkdir '.$this->tmp_path.$dossier,$msg,$statut);
@@ -916,7 +916,6 @@ class Respear
         $conf = $this->check_config($p,$h);
         if ($conf == '') return '';
 
-
         include_once("ATOMWriter.php");
         $xmlWriter = new XMLWriter();
         $xmlWriter->openUri('php://output');
@@ -949,7 +948,7 @@ class Respear
           ->writeStartIndex(1)
           ->writeItemsPerPage(10)
           ->writeTotalResults(100)
-          ->writeTitle('list of the different version of '.(string)$p->__sections[0].':');
+          ->writeTitle('Versions of '.(string)$p->__sections[0].':');
 
         foreach ($nom as $v) {
 		    $f->startEntry("urn:respear:$para:$v")
