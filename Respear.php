@@ -8,7 +8,7 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
- 
+
 include_once('RespearStatus.php');
 
 class Respear 
@@ -22,15 +22,15 @@ class Respear
     public $htapikey_file    = '';
     public $htblacklist_file = '';
     public $stream_context   = '';
-	
-		 
+
+
     public function __construct($args = array())
     {
         foreach ($args as $k=>$v) {
             $this->$k = $v;
         }
     }
-    
+
     /**
      * Sends the header HTTP and the text of the reply
      */ 	
@@ -45,7 +45,7 @@ class Respear
             $this->show_message($instance->getContent());
         }
     }
-    
+
     /**
      * List the file present in the package
      */
@@ -55,11 +55,9 @@ class Respear
         $conf = $this->check_config($p,$h);
         if ($conf == '') return '';
 
-        $name    = (string)$p->__sections[0];
-        $release = (string)$p->__sections[1];
-        $path    = (string)$p->__sections[2];
-        $tgz     = $this->pear_server_path.'get/'.$name.'-'.$release.'.tgz';
-        
+        list($name, $release, $path) = $this->split_url($p, $h);
+        $tgz = $this->pear_server_path.'get/'.$name.'-'.$release.'.tgz';
+
         // On va dans GET voir si le packet existe
         if (!file_exists($tgz)) {
             RespearStatus::getInstance()->addStatus(4040);
@@ -81,47 +79,47 @@ class Respear
         $xmlWriter = new XMLWriter();
         $xmlWriter->openUri('php://output');
         $xmlWriter->setIndent(true);
-        
+
         //Titre du flux ATOM
         $f = new ATOMWriter($xmlWriter, true);
         $f->startFeed('urn:respear')
-          ->writeStartIndex(1)
-          ->writeItemsPerPage(10)
-          ->writeTotalResults(100)
-          ->writeTitle('Files in package '.$name.'-'.$release.'/'.$path);
-        
+            ->writeStartIndex(1)
+            ->writeItemsPerPage(10)
+            ->writeTotalResults(100)
+            ->writeTitle('Files in package '.$name.'-'.$release.'/'.$path);
+
         // Affichage de package.xml si on est a la racine
         if ($path == '') {
             $f->startEntry("urn:respear:$name-$release/package.xml")
-              ->writeTitle("package.xml")
-              ->writeLink("package.xml")
-              ->endEntry();
+                ->writeTitle("package.xml")
+                ->writeLink("package.xml")
+                ->endEntry();
             $f->flush();
         }
-        
+
         // On boucle sur la liste et on affiche
         if (empty($msg)) {
             $f->startEntry("urn:respear:$name-$release")
-                       ->writeTitle('We are sorry, there is an error in the script. Please contact the developper.')
-                       ->endEntry();
-                     $f->flush();
+                ->writeTitle('We are sorry, there is an error in the script. Please contact the developper.')
+                ->endEntry();
+            $f->flush();
         }
         foreach ($msg as $v) {
             if (preg_match("|^$name-$release/$path|",$v,$tab)) {
                 $line = preg_replace("|^$name-$release/$path|",'',$v);
                 if ($line != '' && $line != '/') {
-                     $f->startEntry("urn:respear:$name-$release/$v")
-                       ->writeTitle($line)
-                       ->writeLink($line)
-                       ->endEntry();
-                     $f->flush();
+                    $f->startEntry("urn:respear:$name-$release/$v")
+                        ->writeTitle($line)
+                        ->writeLink($line)
+                        ->endEntry();
+                    $f->flush();
                 }
             } else {
-                 $f->startEntry("urn:respear:$name-$release/$v")
-                   ->writeTitle($v)
-                   ->writeLink($v)
-                   ->endEntry();
-                 $f->flush();
+                $f->startEntry("urn:respear:$name-$release/$v")
+                    ->writeTitle($v)
+                    ->writeLink($v)
+                    ->endEntry();
+                $f->flush();
             }
         }
         $f->endFeed();
@@ -129,24 +127,22 @@ class Respear
         RespearStatus::getInstance()->addStatus(200);
         $this->send_respear_status($h, null, false);   
     }
-    
+
     /**
      * Sends a file which is a pear package
      */
     function get_file($p,$h)
     {
-        $path = (string)$p->__sections[2]; 
+        list($name, $release, $path) = $this->split_url($p, $h);
+
         if (substr($path,strlen($path)-1)== '/') {
             $this->show_package($p,$h);
             return;
         }
-        
+
         //Check configuration
         $conf = $this->check_config($p,$h);
         if ($conf == '') return;
-        
-        $name    = (string)$p->__sections[0];
-        $release = (string)$p->__sections[1];
 
         // On va dans GET voir si le packet existe
         if (!file_exists($this->pear_server_path.'get/'.$name.'-'.$release.'.tgz')) {     
@@ -154,7 +150,7 @@ class Respear
             $this->send_respear_status($h);
             return;
         }    
-        
+
         // Création d'un dossier temporaire
         $dossier = "dossier_".rand(100,900)."/";
         exec('mkdir '.$this->tmp_path.$dossier,$msg,$statut);
@@ -165,16 +161,16 @@ class Respear
             return;
         }
         chdir($this->tmp_path.$dossier);
-        
+
         $tgz       = $this->pear_server_path.'get/'.$name.'-'.$release.'.tgz';
         $file_name = substr($path,strrpos($path,'/'));
-        
+
         // Si on trouve un / ca signifie qu'on est pas dans le repertoire racine donc faut rentrer dans le dossier nom-release
-      
+
         if ( $path != 'package.xml')  {
             $path = $name.'-'.$release.'/'.$path;            
         }
-        
+
         // On extrait le fichier
         exec('tar --extract --file='.$tgz.' '.$path,$msg,$status);  
         if ($status > 0 || !file_exists($this->tmp_path.$dossier.$path) ) {
@@ -183,18 +179,18 @@ class Respear
             exec('rm -rf '.$this->tmp_path.$dossier);
             return;
         }
-        
+
         // On recupere son MIME-Type
         require_once 'MIME/Type.php';                 
         $type_file = trim(MIME_Type::autoDetect($this->tmp_path.$dossier.$path));
-        
+
         // On recupere le contenu
         $return = @file_get_contents($this->tmp_path.$dossier.$path);
-        
+
         // On precise le MIME-Type
         $h->add("content-type",$type_file);
         file_put_contents('php://output', $return);
-        
+
         // On ecrit le log, on supprime le fichier
         RespearStatus::getInstance()->addStatus(200);
         //$this->send_respear_status($h);  
@@ -213,29 +209,28 @@ class Respear
         //Check configuration
         $conf = $this->check_config($p,$h);
         if ($conf == '') return;
-        
+
         // Verification des  de login/API Key, 
         $login = $this->check_autorization($p,$h);
         if ($login == '') return;
 
         // On recupere le nom du package a supprimer
-        $name    = (string)$p->__sections[0];
-        $release = (string)$p->__sections[1];
+        list($name, $release, $path) = $this->split_url($p, $h);
 
         $noms = array();
         if ( $release == "index" ) {
-	        // On veut supprimer toute une famille de package
-	        $rep = $this->pear_server_path."get/";
-	        $dir = opendir($this->pear_server_path."get/");
-	        while ($f = readdir($dir)) {                
-		        if (is_file($rep.$f)) {
-			        if (eregi("^".$name."-[0-9.]+.tgz$",$f)) {
-				        $noms[] = $f;
-			        }
-		        }
+            // On veut supprimer toute une famille de package
+            $rep = $this->pear_server_path."get/";
+            $dir = opendir($this->pear_server_path."get/");
+            while ($f = readdir($dir)) {                
+                if (is_file($rep.$f)) {
+                    if (eregi("^".$name."-[0-9.]+.tgz$",$f)) {
+                        $noms[] = $f;
+                    }
+                }
             }
         } else {
-	        $noms[] = $name."-".$release.".tgz";
+            $noms[] = $name."-".$release.".tgz";
         }
 
         if (count($noms) == 0 ){
@@ -253,7 +248,7 @@ class Respear
                 $this->send_respear_status($h);
                 return;
             }
-        
+
             // On le copie avant la suppréssion par Pirum
             exec('cp '.$this->pear_server_path.'/get/'.$nom.' '.$this->pear_server_path.'/respear/attic/'.time().'_'.$nom ,$msg,$statut); 
             if ($statut > 0) {
@@ -292,7 +287,7 @@ class Respear
         //Check configuration
         $conf = $this->check_config($p,$h);
         if ($conf == '') return;
-        
+
         // Verification de l'user mdp
         $login = $this->check_autorization($p,$h);
         if ($login === '') return;               
@@ -325,7 +320,7 @@ class Respear
                 exec("rm -rf ".$this->tmp_path.$dossier);
                 return;       
             }
-            
+
             // Ecriture du binaire dans le temporaire   
             $ecriture = file_put_contents($this->tmp_path.$dossier."tmp.data",$var);  
             if (!file_exists($this->tmp_path.$dossier."tmp.data") || !$ecriture) {
@@ -338,26 +333,26 @@ class Respear
             // Detection du mime type 
             require_once 'MIME/Type.php';                 
             switch (trim(MIME_Type::autoDetect($this->tmp_path.$dossier."tmp.data"))) {
-                case "application/zip":
-                    $tab = $this->prepare_pear_package_from_zip($p,$h,$login,$this->tmp_path.$dossier);
-                    if ($tab === '') return;
-                    break;
-                case "application/x-tar":
-                    $tab = $this->prepare_pear_package_from_tar($p,$h,$login,$this->tmp_path.$dossier);
-                    if ($tab === '') return;
-                    break;
-                case "application/x-gzip":
-                    $tab = $this->prepare_pear_package_from_tgz($p,$h,$login,$this->tmp_path.$dossier);
-                    if ($tab === '') return;
-                    break;
-                default :
-                    $this->write_log($login,'-',"415","-");
-                    RespearStatus::getInstance()->addStatus(4157);
-                    $this->send_respear_status($h);
-                    return;
+            case "application/zip":
+                $tab = $this->prepare_pear_package_from_zip($p,$h,$login,$this->tmp_path.$dossier);
+                if ($tab === '') return;
+                break;
+            case "application/x-tar":
+                $tab = $this->prepare_pear_package_from_tar($p,$h,$login,$this->tmp_path.$dossier);
+                if ($tab === '') return;
+                break;
+            case "application/x-gzip":
+                $tab = $this->prepare_pear_package_from_tgz($p,$h,$login,$this->tmp_path.$dossier);
+                if ($tab === '') return;
+                break;
+            default :
+                $this->write_log($login,'-',"415","-");
+                RespearStatus::getInstance()->addStatus(4157);
+                $this->send_respear_status($h);
+                return;
             }
         }
-            		
+
         // On va voir dans le depot du serveur si le package existe
         if (file_exists($this->pear_server_path."get/".$tab['name'].".tgz")) {
             $this->write_log($login,$tab['name'],"409","-");
@@ -366,7 +361,7 @@ class Respear
             exec("rm -rf ".$this->tmp_path.$dossier);
             return;
         }
-        
+
         // On execute la commande Pirum pour l'ajout du packet sur le serveur
         exec($this->pirum_path.' add '.$this->pear_server_path.' '.$tab['tgz_path'],$msg,$statut);
         if ($statut > 0) {
@@ -380,7 +375,7 @@ class Respear
             $this->send_respear_status($h);
             return;
         }
-        
+
         // L'ajout a eu lieu avec succès    
         $this->write_log($login,$tab['name'],"200","-");
         RespearStatus::getInstance()->addStatus(2000,array('Name: '.$tab['name']));
@@ -404,7 +399,7 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return '';
         }
-        
+
         // On extrait le tgz
         chdir($dossier_tmp);
         exec("tar xvzf $dossier_tmp"."tmp.tgz",$msg,$status);
@@ -415,10 +410,10 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return '';     
         }
-       
-       return $this->prepare_pear_package($p,$h,$login,$dossier_tmp);
+
+        return $this->prepare_pear_package($p,$h,$login,$dossier_tmp);
     }
-    
+
     /**
      * Renames the pear package type to TAR and extract this tar
      * @return The result of prepare_pear_package (the name and the tgz path of the pear package)
@@ -434,7 +429,7 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return '';
         }
-        
+
         // On decompression du tar
         chdir($dossier_tmp);
         exec("tar xvf $dossier_tmp"."tmp.data ",$msg,$status);
@@ -445,7 +440,7 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return '';   
         }
-        
+
         return $this->prepare_pear_package($p,$h,$login,$dossier_tmp);
     }
 
@@ -464,7 +459,7 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return '';
         }
-        
+
         // On extrait le zip
         exec("unzip $dossier_tmp"."tmp.zip -d $dossier_tmp",$msg,$status);
         if ($status > 0) {
@@ -474,8 +469,8 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return '';       
         }
-       
-       return $this->prepare_pear_package($p,$h,$login,$dossier_tmp);
+
+        return $this->prepare_pear_package($p,$h,$login,$dossier_tmp);
     }
 
     /**
@@ -488,7 +483,7 @@ class Respear
         if (isset($_SERVER['HTTP_X_URL_AUTH']) ) {
             $protected = true;
         }
-             
+
         // Configuration du proxy
         $ct_params = array();
         $ct_params['http'] = array(); 
@@ -500,7 +495,7 @@ class Respear
         }
         $ct = stream_context_create($ct_params);
 
-        
+
         // La source du fichier XML
         $lien_xml = $var;
 
@@ -513,7 +508,7 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return ''; 
         }
-        
+
         // Ecriture du fichier XML 
         if (!file_put_contents($this->tmp_path.$dossier_tmp."package.xml",$source_xml)) {
             $this->write_log($login,$var,'415',"-");
@@ -527,27 +522,27 @@ class Respear
         while ( strrpos($lien_xml,"/") == strlen($lien_xml)-1) {
             $lien_xml = substr($lien_xml,0,strlen($lien_xml)-1);
         }
-        
+
         // Le lien du dossier source
         $source_dossier = substr($lien_xml,0,strrpos($lien_xml,"/"))."/";
-        
+
         $nom = $this->extract_package_name($p,$h,$login,$this->tmp_path.$dossier_tmp,$source_xml);
         if ($nom === '') return '';
-        
+
         // Chargement du XML en tant que XML    
         $xml = simplexml_load_string($source_xml);
-        
+
         chdir($this->tmp_path.$dossier_tmp);
         // Création du dossier $nom-$release pour respecter la syntaxe PEAR
         exec("mkdir $nom");
-        
+
         // On appel builder_pear_architecture qui parcours le XML et créé l'architecture adequat
         $children = $this->builder_pear_architecture($login,$nom,$h,$xml->contents,$source_dossier,$ct,$this->tmp_path.$dossier_tmp.$nom);
         if ( $children == '') {  
             return '';
         }
 
-	return $this->prepare_pear_package($p,$h,$login,$this->tmp_path.$dossier_tmp);
+        return $this->prepare_pear_package($p,$h,$login,$this->tmp_path.$dossier_tmp);
     }
 
     /**
@@ -566,12 +561,12 @@ class Respear
             return ''; 
         }
 
-	    $nom = $this->extract_package_name($p,$h,$login,$dossier_tmp,file_get_contents($dossier_tmp."package.xml"));
+        $nom = $this->extract_package_name($p,$h,$login,$dossier_tmp,file_get_contents($dossier_tmp."package.xml"));
         if ($nom === '') return '';	
-        
+
         $xml = $this->update_channel_name($p,$h,$login,$dossier_tmp,file_get_contents($dossier_tmp."package.xml"));
         if ($xml === '') return '';
-        
+
         // On recopie le nouveau XML
         $b = file_put_contents($dossier_tmp."package.xml",$xml);
         if (!$b) {
@@ -581,7 +576,7 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return ''; 
         }
-        
+
         chdir($dossier_tmp);
         exec("tar czf $nom.tgz $nom package.xml",$msg,$status);
         if ($status > 0|| !file_exists($dossier_tmp.$nom.".tgz") ){
@@ -591,11 +586,11 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return '';
         }
-        
-        
+
+
         $return['name']     = $nom;
         $return['tgz_path'] = $dossier_tmp."/$nom.tgz";
-        
+
         return $return;    
     }
 
@@ -606,7 +601,7 @@ class Respear
     function update_channel_name($p,$h,$login,$dossier_tmp,$xml){
         // Modification du nom du channel dans le XML  
         $new_source_xml = preg_replace('/<channel> *[\w\.\-\_]* */','<channel>'.$this->channel_name,$xml,1);
-       
+
         if ($new_source_xml == NULL ) {
             $this->write_log($login,$var,'415',"-");
             RespearStatus::getInstance()->addStatus(4154); 
@@ -625,7 +620,7 @@ class Respear
      * @return the name of the pear package 
      */
     function extract_package_name($p,$h,$login,$dossier_tmp,$xml){
-	    // Création de l'objet SimpleXMLElement        
+        // Création de l'objet SimpleXMLElement        
         try {
             $package = @new SimpleXMLElement($xml);
         } catch (Exception $e) {
@@ -636,7 +631,7 @@ class Respear
             return ''; 
         }
 
-	    // S'il y a des erreurs dans le XML
+        // S'il y a des erreurs dans le XML
         $tab = libxml_get_errors();
         if (count($tab) > 0) {
             $this->write_log($login,'-','415',"-");
@@ -645,8 +640,8 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return '';
         }
-        
-	    // S'il y a bien l'attribut <name>
+
+        // S'il y a bien l'attribut <name>
         if ( ($nom = $package->name) == "") {
             $this->write_log($login,'-','415',"-");
             RespearStatus::getInstance()->addStatus(4154); 
@@ -654,7 +649,7 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return '';   
         }
-	    // S'il y a bien l'attribut <version>
+        // S'il y a bien l'attribut <version>
         if ($package->version == "") {
             $this->write_log($login,'-','415',"-");
             RespearStatus::getInstance()->addStatus(4154); 
@@ -662,7 +657,7 @@ class Respear
             exec("rm -rf $dossier_tmp");
             return ''; 
         }    
-	    // S'il y a bien l'attribut <release>
+        // S'il y a bien l'attribut <release>
         if ($package->version->release == "") {
             $this->write_log($login,'-','415',"-");
             RespearStatus::getInstance()->addStatus(4154); 
@@ -671,7 +666,7 @@ class Respear
             return ''; 
         }
         $nom .= "-".$package->version->release ;
-        
+
         return $nom;
     }
 
@@ -681,23 +676,23 @@ class Respear
     function check_config($p,$h) {
         // Verification de la structure de config.php
         if (! (isset($this->htpasswd_file) && isset($this->htapikey_file) && isset($this->htblacklist_file) && isset($this->tmp_path) 
-        && isset($this->pear_server_path) && isset($this->pirum_path) && isset($this->channel_name) )) {
-            $this->write_server_log(RespearStatus::getInstance()->getMessage(5000)." Missing variable (htpasswd_file, htapikey_file, htblacklist_file,
-              tmp_path, pear_server_path, pirum_path, channel_name)","500");
-            RespearStatus::getInstance()->addStatus(5000,array('Show log file for more information')); 
-            $this->send_respear_status($h); 
-            return '';   
-        }
-       
+            && isset($this->pear_server_path) && isset($this->pirum_path) && isset($this->channel_name) )) {
+                $this->write_server_log(RespearStatus::getInstance()->getMessage(5000)." Missing variable (htpasswd_file, htapikey_file, htblacklist_file,
+                    tmp_path, pear_server_path, pirum_path, channel_name)","500");
+                RespearStatus::getInstance()->addStatus(5000,array('Show log file for more information')); 
+                $this->send_respear_status($h); 
+                return '';   
+            }
+
         // Verification du contenu (si non initialisé)
         if ($this->htpasswd_file == "" || $this->htapikey_file == "" || $this->htblacklist_file == "" || $this->tmp_path == "" || 
-        $this->pear_server_path == "" || $this->pirum_path == "" || $this->channel_name == "") {
-            $this->write_server_log(RespearStatus::getInstance()->getMessage(5000)." Variable not initialized in config.php","500");
-            RespearStatus::getInstance()->addStatus(5000,array('Check your log file for more informations')); 
-            $this->send_respear_status($h); 
-            return '';
-        }
-        
+            $this->pear_server_path == "" || $this->pirum_path == "" || $this->channel_name == "") {
+                $this->write_server_log(RespearStatus::getInstance()->getMessage(5000)." Variable not initialized in config.php","500");
+                RespearStatus::getInstance()->addStatus(5000,array('Check your log file for more informations')); 
+                $this->send_respear_status($h); 
+                return '';
+            }
+
         // Verification de l'integrité des valeurs
         if (!is_file($this->pirum_path)) {
             $this->write_server_log(RespearStatus::getInstance()->getMessage(5000)." Error. Variable pirum_path must be a file","500");
@@ -726,10 +721,10 @@ class Respear
         if (!is_file($this->htblacklist_file)) {
             touch($this->htblacklist_file);
         }
-        
+
         return 'ok';
     } 
-    
+
     /**
      * Check the architecture of config.php 
      * Check the autorization. If this login is know and is not blocked
@@ -755,7 +750,7 @@ class Respear
         }
         $tab_pwd  = split("[\n]",$fichierPWD);
 
-        
+
         // Est-il connu dans la base    
         if (!in_array($login_mdp,$tab_pwd) ) {
             $blackList = file_get_contents($this->htblacklist_file);
@@ -822,8 +817,8 @@ class Respear
             }
         }
         @file_put_contents($this->log_path."respear.log",$_SERVER["REMOTE_ADDR"]." - ".$login." ".date("[d/M/Y:H:i:s O]")." \"".
-                 $_SERVER["REQUEST_METHOD"] ." /respear/$nomPacket ".$_SERVER["SERVER_PROTOCOL"]."\" ".    $codeHtml." ".$tailleObj." \"".
-                 "-"."\" \"".$_SERVER["HTTP_USER_AGENT"] ."\"\n",FILE_APPEND);
+            $_SERVER["REQUEST_METHOD"] ." /respear/$nomPacket ".$_SERVER["SERVER_PROTOCOL"]."\" ".    $codeHtml." ".$tailleObj." \"".
+            "-"."\" \"".$_SERVER["HTTP_USER_AGENT"] ."\"\n",FILE_APPEND);
     }
 
     /**
@@ -839,7 +834,7 @@ class Respear
             }
         }
         @file_put_contents($this->log_path."error.log",date("[d/M/Y:H:i:s O]")." [".$codeHtml."] [".$_SERVER["REMOTE_ADDR"]."] "
-        .$_SERVER["REQUEST_METHOD"]." \"".$msg."\"\n",FILE_APPEND);
+            .$_SERVER["REQUEST_METHOD"]." \"".$msg."\"\n",FILE_APPEND);
     }    
 
     /**
@@ -879,28 +874,28 @@ class Respear
 
         $dir = opendir($rep);
         while ($f = readdir($dir)) {
-           if (is_file($rep.$f)) {
-               $nom = substr($f,0,strpos($f,"-"));
-               if (!in_array($nom,$tab_nom)) {
-                   $tab_nom[]             = $nom;
-                   $info_nom[$nom."crea"] = filectime($rep.$f);
-                   $info_nom[$nom."modi"] = filemtime($rep.$f);
-               }
-           }
+            if (is_file($rep.$f)) {
+                $nom = substr($f,0,strpos($f,"-"));
+                if (!in_array($nom,$tab_nom)) {
+                    $tab_nom[]             = $nom;
+                    $info_nom[$nom."crea"] = filectime($rep.$f);
+                    $info_nom[$nom."modi"] = filemtime($rep.$f);
+                }
+            }
         }
 
         $f = new ATOMWriter($xmlWriter, true);
         $f->startFeed('urn:respear')
-          ->writeStartIndex(1)
-          ->writeItemsPerPage(10)
-          ->writeTotalResults(100)
-          ->writeTitle('PEAR package list on the server');
-            
+            ->writeStartIndex(1)
+            ->writeItemsPerPage(10)
+            ->writeTotalResults(100)
+            ->writeTitle('PEAR package list on the server');
+
         foreach ($tab_nom as $k=>$v) {
             $f->startEntry("urn:respear:$v",$info_nom[$v."crea"],$info_nom[$v."modi"])
-              ->writeTitle($v)
-              ->writeLink($v.'/')
-              ->endEntry();
+                ->writeTitle($v)
+                ->writeLink($v.'/')
+                ->endEntry();
             $f->flush();
         }
         $f->endFeed();
@@ -913,6 +908,8 @@ class Respear
      */
     function list_package_versions($p, $h)
     {
+        list($name, $release, $path) = $this->split_url($p, $h);
+
         $h->add('Content-Type','application/atom+xml; charset=UTF-8');
 
         // Check configuration
@@ -926,38 +923,37 @@ class Respear
         $f = new ATOMWriter($xmlWriter, true);
         $rep     = $this->pear_server_path."get/";
         $nom     = array();
-        $para    = (string)$p->__sections[0];
-	    $boolean = 0;
+        $boolean = 0;
         $dir = opendir($rep);         
         while ($fi = readdir($dir)) {                            
             if (is_file($rep.$fi)) {
-                if (strpos($fi,$para) !== false && !in_array(substr($fi,0,strrpos($fi,".")),$nom)) {    
-                   //s'il contient le mot en param et qu'on la pas en memoire
-                   $boolean = 1;
-                   $nom[] = substr($fi,0,strrpos($fi,"."));
+                if (strpos($fi,$name) !== false && !in_array(substr($fi,0,strrpos($fi,".")),$nom)) {    
+                    //s'il contient le mot en param et qu'on la pas en memoire
+                    $boolean = 1;
+                    $nom[] = substr($fi,0,strrpos($fi,"."));
                 }
             }
         }
         if ($boolean == 0 ) {
-        	$h->send(404);
-        	$f->startFeed("urn:respear:$para:unknow")
-          	  ->writeStartIndex(1)
-	          ->writeItemsPerPage(10)
-	          ->writeTotalResults(100)
-	          ->writeTitle('Package not found');      
-	          exit();
+            $h->send(404);
+            $f->startFeed("urn:respear:$name:unknow")
+                ->writeStartIndex(1)
+                ->writeItemsPerPage(10)
+                ->writeTotalResults(100)
+                ->writeTitle('Package not found');      
+            exit();
         }
-        $f->startFeed("urn:respear:$para")
-          ->writeStartIndex(1)
-          ->writeItemsPerPage(10)
-          ->writeTotalResults(100)
-          ->writeTitle('Versions of '.(string)$p->__sections[0]);
+        $f->startFeed("urn:respear:$name")
+            ->writeStartIndex(1)
+            ->writeItemsPerPage(10)
+            ->writeTotalResults(100)
+            ->writeTitle('Versions of '.$name);
 
         foreach ($nom as $v) {
-	    $f->startEntry("urn:respear:$para:$v")
-              ->writeTitle($v)
-              ->writeLink(substr($v,strrpos($v,'-')+1).'/')
-              ->endEntry();
+            $f->startEntry("urn:respear:$name:$v")
+                ->writeTitle($v)
+                ->writeLink(substr($v,strrpos($v,'-')+1).'/')
+                ->endEntry();
             $f->flush();
         }   
         $f->endFeed();
@@ -965,4 +961,20 @@ class Respear
 
         $h->send(200);
     } 
+
+    /**
+     * split url into name/release/path
+     */
+    function split_url($p, $h)
+    {
+        $r = array('', '', '');
+        if ($r[0] = (string) $p->__sections->fetch()) {
+            if ($r[1] = (string) $p->__sections->fetch()) {
+                $r[2] = (string) $p->__sections->fetch();
+            }
+        }
+        return $r;
+    }
+
+
 }
