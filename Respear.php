@@ -13,15 +13,15 @@ include_once('RespearStatus.php');
 
 class Respear 
 {
-	public $channel_name     = '';
+    public $channel_name     = '';
     public $pirum_path       = '';
     public $pear_server_path = '';		
-	public $tmp_path         = '';
+    public $tmp_path         = '';
     public $log_path         = '';
     public $htpasswd_file    = '';
     public $htapikey_file    = '';
-	public $htblacklist_file = '';
-	public $stream_context   = '';
+    public $htblacklist_file = '';
+    public $stream_context   = '';
 	
 		 
     public function __construct($args = array())
@@ -944,19 +944,21 @@ class Respear
 	          ->writeTitle('Package not found');      
 	          exit();
         }
-	    $f->startFeed("urn:respear:$para")
+        $f->startFeed("urn:respear:$para")
           ->writeStartIndex(1)
           ->writeItemsPerPage(10)
           ->writeTotalResults(100)
-          ->writeTitle('Versions of '.(string)$p->__sections[0].':');
+          ->writeTitle('Versions of '.(string)$p->__sections[0]);
 
         foreach ($nom as $v) {
-		    $f->startEntry("urn:respear:$para:$v")
+	    $f->startEntry("urn:respear:$para:$v")
               ->writeTitle($v)
               ->writeLink(substr($v,strrpos($v,'-')+1).'/')
               ->endEntry();
             $f->flush();
         }   
+        $f->endFeed();
+        $f->flush();
 
         $h->send(200);
     } 
