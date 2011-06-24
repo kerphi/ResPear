@@ -55,10 +55,8 @@ class Respear
         $conf = $this->check_config($p,$h);
         if ($conf == '') return '';
 
-        $name    = (string)$p->__sections[0];
-        $release = (string)$p->__sections[1];
-        $path    = (string)$p->__sections[2];
-        $tgz     = $this->pear_server_path.'get/'.$name.'-'.$release.'.tgz';
+        list($name, $release, $path) = $this->split_url($p, $h);
+        $tgz = $this->pear_server_path.'get/'.$name.'-'.$release.'.tgz';
 
         // On va dans GET voir si le packet existe
         if (!file_exists($tgz)) {
@@ -135,7 +133,8 @@ class Respear
      */
     function get_file($p,$h)
     {
-        $path = (string)$p->__sections[2]; 
+        list($name, $release, $path) = $this->split_url($p, $h);
+
         if (substr($path,strlen($path)-1)== '/') {
             $this->show_package($p,$h);
             return;
@@ -144,9 +143,6 @@ class Respear
         //Check configuration
         $conf = $this->check_config($p,$h);
         if ($conf == '') return;
-
-        $name    = (string)$p->__sections[0];
-        $release = (string)$p->__sections[1];
 
         // On va dans GET voir si le packet existe
         if (!file_exists($this->pear_server_path.'get/'.$name.'-'.$release.'.tgz')) {     
@@ -219,8 +215,7 @@ class Respear
         if ($login == '') return;
 
         // On recupere le nom du package a supprimer
-        $name    = (string)$p->__sections[0];
-        $release = (string)$p->__sections[1];
+        list($name, $release, $path) = $this->split_url($p, $h);
 
         $noms = array();
         if ( $release == "index" ) {
@@ -913,6 +908,8 @@ class Respear
      */
     function list_package_versions($p, $h)
     {
+        list($name, $release, $path) = $this->split_url($p, $h);
+
         $h->add('Content-Type','application/atom+xml; charset=UTF-8');
 
         // Check configuration
@@ -926,12 +923,11 @@ class Respear
         $f = new ATOMWriter($xmlWriter, true);
         $rep     = $this->pear_server_path."get/";
         $nom     = array();
-        $para    = (string)$p->__sections[0];
         $boolean = 0;
         $dir = opendir($rep);         
         while ($fi = readdir($dir)) {                            
             if (is_file($rep.$fi)) {
-                if (strpos($fi,$para) !== false && !in_array(substr($fi,0,strrpos($fi,".")),$nom)) {    
+                if (strpos($fi,$name) !== false && !in_array(substr($fi,0,strrpos($fi,".")),$nom)) {    
                     //s'il contient le mot en param et qu'on la pas en memoire
                     $boolean = 1;
                     $nom[] = substr($fi,0,strrpos($fi,"."));
@@ -940,21 +936,21 @@ class Respear
         }
         if ($boolean == 0 ) {
             $h->send(404);
-            $f->startFeed("urn:respear:$para:unknow")
+            $f->startFeed("urn:respear:$name:unknow")
                 ->writeStartIndex(1)
                 ->writeItemsPerPage(10)
                 ->writeTotalResults(100)
                 ->writeTitle('Package not found');      
             exit();
         }
-        $f->startFeed("urn:respear:$para")
+        $f->startFeed("urn:respear:$name")
             ->writeStartIndex(1)
             ->writeItemsPerPage(10)
             ->writeTotalResults(100)
-            ->writeTitle('Versions of '.(string)$p->__sections[0]);
+            ->writeTitle('Versions of '.$name);
 
         foreach ($nom as $v) {
-            $f->startEntry("urn:respear:$para:$v")
+            $f->startEntry("urn:respear:$name:$v")
                 ->writeTitle($v)
                 ->writeLink(substr($v,strrpos($v,'-')+1).'/')
                 ->endEntry();
@@ -965,4 +961,20 @@ class Respear
 
         $h->send(200);
     } 
+
+    /**
+     * split url into name/release/path
+     */
+    function split_url($p, $h)
+    {
+        $r = array('', '', '');
+        if ($r[0] = (string) $p->__sections->fetch()) {
+            if ($r[1] = (string) $p->__sections->fetch()) {
+                $r[2] = (string) $p->__sections->fetch();
+            }
+        }
+        return $r;
+    }
+
+
 }
